@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Amazon Ads — Period Performance</title>
+
+<!--
+  Typeface note: Neue Montreal (Pangram Pangram) requires a paid commercial
+  license for business use — it can't be pulled from a CDN without one. The
+  stack below names it first (so it's used automatically if this page is
+  ever loaded alongside a licensed copy — e.g. a company font kit on the
+  parent dashboard, or self-hosted @font-face files added later) and falls
+  back to General Sans, a free-for-commercial-use grotesque from Fontshare
+  with a very similar structure, loaded legitimately via Fontshare's API.
+-->
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0A0A0A;
+    --bg-raise: #121212;
+    --panel: rgba(255,255,255,0.045);
+    --panel-strong: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.10);
+    --text: #FFFFFF;
+    --text-dim: #A3A3A3;
+    --text-faint: #666666;
+    --line-a: #FFFFFF;
+    --line-b: #BDBDBD;
+    --line-c: #7A7A7A;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: 'Neue Montreal', 'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #shell { display: flex; height: 100vh; overflow: hidden; }
+  #app { flex: 1; display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden; }
+
+  /* ---------- Sidebar ---------- */
+
+  #sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-raise);
+    border-right: 1px solid var(--border);
+    transition: width 0.18s ease;
+    overflow: hidden;
+  }
+  #sidebar.collapsed { width: 56px; }
+
+  .sidebar-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-toggle {
+    width: 28px; height: 28px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .sidebar-toggle:hover { color: var(--text); background: var(--panel); }
+  .sidebar-toggle svg { width: 14px; height: 14px; transition: transform 0.18s ease; }
+  #sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+
+  .sidebar-brand { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; }
+  #sidebar.collapsed .sidebar-brand { display: none; }
+
+  .sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; flex: 1; overflow-y: auto; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: transparent; border: none;
+    color: var(--text-dim);
+    font-family: var(--font); font-size: 12.5px; font-weight: 500;
+    cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden;
+  }
+  .nav-item:hover { background: var(--panel); color: var(--text); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .label-text { overflow: hidden; text-overflow: ellipsis; }
+  #sidebar.collapsed .nav-item { justify-content: center; padding: 8px; }
+  #sidebar.collapsed .nav-item .label-text { display: none; }
+
+  .sidebar-bottom { padding: 10px 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
+
+  .sidebar-reset {
+    width: 100%;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font); font-size: 12.5px; font-weight: 500;
+    cursor: pointer; white-space: nowrap; overflow: hidden;
+  }
+  .sidebar-reset:hover { background: var(--panel-strong); color: var(--text); }
+  .sidebar-reset svg { width: 15px; height: 15px; flex-shrink: 0; }
+  #sidebar.collapsed .sidebar-reset { justify-content: center; padding: 8px; }
+  #sidebar.collapsed .sidebar-reset .label-text { display: none; }
+
+  /* ---------- Header ---------- */
+
+  header.bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-raise);
+    flex-shrink: 0;
+  }
+
+  .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+
+  .brand .mark {
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .brand .filename {
+    color: var(--text-faint);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .status-pill.loaded { color: var(--text); }
+  .status-pill.loaded .dot { background: var(--text); }
+  .status-pill.error { color: var(--text); border-color: var(--text-faint); }
+  .status-pill.error .dot { background: var(--text-faint); }
+
+  .spacer { flex: 1; }
+
+  button.btn {
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  button.btn:hover { background: var(--panel-strong); }
+  button.btn:focus-visible, select:focus-visible, .th-sort:focus-visible {
+    outline: 1.5px solid var(--text);
+    outline-offset: 1px;
+  }
+
+  input[type="file"] { display: none; }
+
+  /* ---------- Waiting state ---------- */
+
+  #waitingView {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+    text-align: center;
+  }
+  #waitingView.hidden { display: none; }
+
+  .dropzone {
+    width: 100%;
+    max-width: 440px;
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 36px 28px;
+    border: 1.5px dashed var(--border);
+    border-radius: 16px;
+    background: var(--panel);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .dropzone:hover { border-color: rgba(255,255,255,0.3); background: var(--panel-strong); }
+  .dropzone:focus-visible { outline: 1.5px solid var(--text); outline-offset: 4px; }
+  .dropzone.drag-active { border-color: rgba(255,255,255,0.55); background: var(--panel-strong); }
+
+  .waiting-glyph {
+    width: 60px; height: 60px;
+    border-radius: 13px;
+    border: 1px solid var(--border);
+    background: var(--panel-strong);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .waiting-glyph svg { width: 28px; height: 28px; }
+
+  .dropzone-title { font-size: 15.5px; font-weight: 600; margin: 0; color: var(--text); }
+  .dropzone-sub { margin: 0; color: var(--text-dim); font-size: 12.5px; }
+
+  .waiting-formats { display: flex; gap: 8px; margin-top: 2px; }
+  .format-chip { font-size: 11px; color: var(--text-faint); border: 1px solid var(--border); border-radius: 100px; padding: 3px 10px; }
+
+  .waiting-note { margin: 0; color: var(--text-faint); max-width: 380px; font-size: 12px; line-height: 1.5; }
+
+  /* ---------- Error state ---------- */
+
+  #errorView { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px; text-align: center; }
+  #errorView.hidden { display: none; }
+  #errorView p { max-width: 420px; color: var(--text-dim); font-size: 13px; margin: 0; }
+  #errorView .errorTitle { font-weight: 600; font-size: 15px; }
+
+  /* ---------- Dashboard ---------- */
+
+  #dashboardView { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+  #dashboardView.hidden { display: none; }
+  #calloutsList.hidden { display: none; }
+
+  .kpi-strip {
+    display: flex;
+    gap: 0;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+
+  .kpi-card {
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 108px;
+    flex-shrink: 0;
+  }
+  .kpi-card:first-child { padding-left: 0; }
+  .kpi-card:last-child { border-right: none; }
+
+  .kpi-card .label { font-size: 10.5px; color: var(--text-faint); text-transform: none; }
+  .kpi-card .value { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .kpi-card .delta { font-size: 11px; color: var(--text-dim); }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .segmented {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .segmented button {
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .segmented button + button { border-left: 1px solid var(--border); }
+  .segmented button.active { background: var(--panel-strong); color: var(--text); }
+
+  .metric-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+  .metric-field { display: flex; align-items: center; gap: 8px; }
+  .metric-field .swatch { width: 14px; height: 2px; flex-shrink: 0; }
+  .metric-field .swatch.dashed-b { background: repeating-linear-gradient(90deg, var(--line-b) 0 5px, transparent 5px 8px); height: 2px; }
+  .metric-field .swatch.dotted-c { background: repeating-linear-gradient(90deg, var(--line-c) 0 2px, transparent 2px 5px); height: 2px; }
+  .metric-field .swatch.solid-a { background: var(--line-a); }
+
+  .metric-field label { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+
+  select {
+    font-family: var(--font);
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    cursor: pointer;
+  }
+
+  /* The dropdown's own popped-open option list is rendered by the browser,
+     not this stylesheet's dark theme — it shows on a white system background
+     regardless, so options need an explicit dark color or the white text
+     from `select` above disappears against it. */
+  select option {
+    color: #111111;
+    background-color: #FFFFFF;
+  }
+
+  .chart-wrap { flex-shrink: 0; height: 400px; padding: 20px; position: relative; }
+  #chartCanvas { width: 100% !important; height: 100% !important; }
+
+  /* ---------- Callouts ---------- */
+
+  .callouts-section { flex-shrink: 0; padding: 18px 20px 28px; border-top: 1px solid var(--border); }
+
+  .callouts-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 2px; flex-wrap: wrap; }
+  .callouts-title { font-size: 13.5px; font-weight: 600; }
+  .callouts-header-actions { display: flex; gap: 6px; }
+
+  .btn-tiny {
+    font-family: var(--font);
+    font-size: 11px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .btn-tiny:hover { background: var(--panel); color: var(--text); }
+
+  .callouts-sub { font-size: 11.5px; color: var(--text-faint); margin: 4px 0 14px; }
+
+  .callout-metric-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+
+  .callout-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 5px 11px;
+    cursor: pointer;
+  }
+  .callout-check input { accent-color: #FFFFFF; cursor: pointer; }
+  .callout-check.checked { color: var(--text); background: var(--panel-strong); }
+
+  .callouts-picker-actions { display: flex; align-items: center; gap: 8px; margin-top: 2px; margin-bottom: 4px; }
+  .callouts-picker-actions .spacer-inline { flex: 1; }
+
+  /* ---------- Callouts modal ---------- */
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal-backdrop.hidden { display: none; }
+
+  .modal-box {
+    width: 100%;
+    max-width: 420px;
+    max-height: 84vh;
+    overflow-y: auto;
+    background: var(--bg-raise);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+  }
+
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .modal-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+
+  .modal-close {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .modal-close:hover { color: var(--text); background: var(--panel); }
+
+  .modal-section-label { font-size: 11px; color: var(--text-faint); margin: 16px 0 8px; }
+  .modal-section-label:first-of-type { margin-top: 14px; }
+
+  .modal-hint { font-size: 11.5px; color: var(--text-faint); margin-top: 8px; line-height: 1.5; }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .callouts-bullets {
+    list-style: disc;
+    margin: 4px 0 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .callouts-bullets li::marker { color: var(--text-faint); }
+
+  .callout-item { font-size: 12.5px; color: var(--text-dim); line-height: 1.6; }
+  .callout-empty-item { list-style: none; margin-left: -20px; color: var(--text-faint); font-size: 12.5px; }
+
+  .callout-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border: 1px solid var(--text-faint);
+    border-radius: 100px;
+    padding: 1px 8px;
+    color: var(--text-dim);
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .callout-tag.tag-growth { color: var(--text); border-color: rgba(255,255,255,0.4); }
+  .callout-tag.tag-risk { color: var(--text); border-color: rgba(255,255,255,0.4); }
+
+  .callout-body strong { color: var(--text); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  @media (max-width: 640px) {
+    .toolbar { gap: 12px; }
+    .kpi-card { min-width: 92px; padding: 0 14px; }
+    .chart-wrap { height: 320px; }
+    #sidebar { width: 168px; }
+    #sidebar.collapsed { width: 48px; }
+  }
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <aside id="sidebar">
+    <div class="sidebar-top">
+      <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4l-6 6 6 6"/></svg>
+      </button>
+      <span class="sidebar-brand">Amazon Ads</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item" type="button" data-target="kpiStrip">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg>
+        <span class="label-text">Overview</span>
+      </button>
+      <button class="nav-item" type="button" data-target="chartSection">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h14"/><path d="M6 13V9"/><path d="M10 13V5"/><path d="M14 13v-6"/></svg>
+        <span class="label-text">Performance</span>
+      </button>
+      <button class="nav-item" type="button" data-target="calloutsSection">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="5" r="0.9" fill="currentColor" stroke="none"/><path d="M7.5 5h9"/><circle cx="4" cy="10" r="0.9" fill="currentColor" stroke="none"/><path d="M7.5 10h9"/><circle cx="4" cy="15" r="0.9" fill="currentColor" stroke="none"/><path d="M7.5 15h9"/></svg>
+        <span class="label-text">Callouts</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <button class="sidebar-reset" id="sidebarResetBtn" type="button">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10a5.5 5.5 0 1 1 1.64 3.92"/><path d="M4.5 14v-4h4"/></svg>
+        <span class="label-text">Reset</span>
+      </button>
+    </div>
+  </aside>
+
+  <div id="app">
+
+  <header class="bar">
+    <div class="brand">
+      <span class="mark">Amazon Ads — Period Performance</span>
+      <span class="filename" id="filenameLabel"></span>
+    </div>
+    <div class="spacer"></div>
+    <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Waiting for a report</span></span>
+    <button class="btn" id="openFileBtn" type="button">Choose file…</button>
+    <input type="file" id="fileInput" accept=".csv,.json,.xlsx,.xls,text/csv,application/json" />
+  </header>
+
+  <div id="waitingView">
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload a report — click to browse or drag a file here">
+      <div class="waiting-glyph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19h16"/>
+          <path d="M7 16v-5"/>
+          <path d="M12 16V7"/>
+          <path d="M17 16v-8"/>
+        </svg>
+      </div>
+      <p class="dropzone-title">Drop a report here, or click to browse</p>
+      <p class="dropzone-sub">CSV, Excel, or JSON</p>
+      <div class="waiting-formats">
+        <span class="format-chip">CSV</span>
+        <span class="format-chip">Excel</span>
+        <span class="format-chip">JSON</span>
+      </div>
+    </div>
+    <p class="waiting-note">This fills in automatically once a report arrives from the directory's file library — the box above is for testing the tool standalone.</p>
+  </div>
+
+  <div id="errorView" class="hidden">
+    <div class="errorTitle">Couldn't read that report</div>
+    <p id="errorMessage"></p>
+    <button class="btn" id="errorResetBtn" type="button">Try another file</button>
+  </div>
+
+  <div id="dashboardView" class="hidden">
+    <div class="kpi-strip" id="kpiStrip"></div>
+
+    <div class="toolbar">
+      <div class="segmented" id="periodToggle">
+        <button type="button" data-val="monthly" class="active">Monthly</button>
+        <button type="button" data-val="quarterly">Quarterly</button>
+      </div>
+
+      <div class="metric-controls">
+        <div class="metric-field">
+          <span class="swatch solid-a"></span>
+          <label for="leftMetric1">Left axis</label>
+          <select id="leftMetric1"></select>
+        </div>
+        <div class="metric-field">
+          <span class="swatch dashed-b"></span>
+          <label for="leftMetric2">Left axis</label>
+          <select id="leftMetric2"></select>
+        </div>
+        <div class="metric-field">
+          <span class="swatch dotted-c"></span>
+          <label for="rightMetric">Right axis</label>
+          <select id="rightMetric"></select>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <button class="btn" id="resetBtn" type="button">Load a different report</button>
+    </div>
+
+    <div class="chart-wrap" id="chartSection">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+
+    <div class="callouts-section" id="calloutsSection">
+      <div class="callouts-header">
+        <div class="callouts-title">Growth &amp; risk callouts</div>
+        <div class="callouts-header-actions">
+          <button class="btn" id="calloutsOpenBtn" type="button">Generate callouts</button>
+          <button class="btn-tiny" id="calloutsClearBtn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="callouts-sub">Drafted from your ads report, in the voice of an account analyst prepping a client readout.</div>
+
+      <ul class="callouts-bullets hidden" id="calloutsList"></ul>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="calloutsModalBackdrop">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="calloutsModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="calloutsModalTitle">Generate callouts</div>
+        <button class="modal-close" id="calloutsModalClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-section-label">Comparison</div>
+      <div class="segmented" id="calloutModeToggle">
+        <button type="button" data-val="pop" class="active">Period over period</button>
+        <button type="button" data-val="aggregate">Aggregate</button>
+      </div>
+      <div class="modal-hint" id="calloutModeHint">Compares the latest month to the month before it, based on the chart's current granularity.</div>
+
+      <div class="modal-section-label">Metrics</div>
+      <div class="callout-metric-picker" id="calloutMetricPicker"></div>
+      <div class="callouts-picker-actions">
+        <button class="btn-tiny" id="calloutSelectAll" type="button">Select all</button>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-tiny" id="calloutsModalCancel" type="button">Cancel</button>
+        <button class="btn" id="calloutGenerateBtn" type="button">Generate</button>
+      </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+
+<script>
+(function () {
+  "use strict";
+
+  // =========================================================================
+  // File-receiving contract (same as the other Quick View tools in this
+  // directory — see the CSV/Excel/JSON viewer for the original spec).
+  //
+  // PRODUCTION HARDENING TODO: this accepts a "universal-file" message from
+  // any origin, which is fine for srcdoc-based test harnesses but should be
+  // locked to the directory's real origin before a public deploy:
+  //
+  //   var ALLOWED_ORIGINS = ["https://your-directory.example"];
+  //   window.addEventListener("message", function (event) {
+  //     if (ALLOWED_ORIGINS.indexOf(event.origin) === -1) return;
+  //     ...
+  //   });
+  // =========================================================================
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (!data || data.type !== "universal-file") return;
+    handleIncomingFile(data.file);
+    try {
+      event.source.postMessage(
+        { type: "universal-file-ack", name: data.file.name },
+        event.origin === "null" ? "*" : event.origin
+      );
+    } catch (e) { /* sender may have navigated away */ }
+  });
+
+  // =========================================================================
+  // Decoding helpers
+  // =========================================================================
+
+  function base64ToBytes(base64) {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function base64ToText(base64) {
+    return new TextDecoder("utf-8").decode(base64ToBytes(base64));
+  }
+
+  function splitDataUrl(dataUrl) {
+    var commaIdx = dataUrl.indexOf(",");
+    return { meta: dataUrl.slice(5, commaIdx), base64: dataUrl.slice(commaIdx + 1) };
+  }
+
+  // Amazon Ads exports round-tripped through Excel often wrap long IDs as
+  // ="1234567890" to stop Excel mangling them into scientific notation.
+  function unwrapFormula(v) {
+    if (typeof v !== "string") return v;
+    var m = /^="(.*)"$/.exec(v.trim());
+    return m ? m[1] : v;
+  }
+
+  // =========================================================================
+  // Parsers — each returns { headers, rows }, rows keyed by original header.
+  // =========================================================================
+
+  function parseCSV(text) {
+    var rows = [], row = [], field = "", inQuotes = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else { inQuotes = false; }
+        } else { field += c; }
+      } else if (c === '"') {
+        inQuotes = true;
+      } else if (c === ",") {
+        row.push(field); field = "";
+      } else if (c === "\r") {
+        // ignore; \n terminates the row
+      } else if (c === "\n") {
+        row.push(field); rows.push(row); row = []; field = "";
+      } else {
+        field += c;
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+
+    var cleaned = rows.filter(function (r) { return !(r.length === 1 && r[0] === ""); });
+    if (cleaned.length === 0) return { headers: [], rows: [] };
+
+    var headers = cleaned[0].map(function (h, idx) {
+      var trimmed = unwrapFormula((h || "").trim());
+      return trimmed !== "" ? trimmed : "Column " + (idx + 1);
+    });
+    var dataRows = cleaned.slice(1).map(function (r) {
+      var obj = {};
+      headers.forEach(function (h, idx) { obj[h] = unwrapFormula(r[idx] !== undefined ? r[idx] : ""); });
+      return obj;
+    });
+    return { headers: headers, rows: dataRows };
+  }
+
+  function parseJSONData(text) {
+    var data = JSON.parse(text);
+    var arr;
+    if (Array.isArray(data)) {
+      arr = data;
+    } else if (data && typeof data === "object") {
+      var arrProp = null;
+      for (var key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key) && Array.isArray(data[key])) { arrProp = data[key]; break; }
+      }
+      arr = arrProp || [data];
+    } else {
+      arr = [data];
+    }
+    if (arr.length === 0) return { headers: [], rows: [] };
+    var first = arr[0];
+
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      var headerSet = [];
+      arr.forEach(function (obj) {
+        if (obj && typeof obj === "object") {
+          Object.keys(obj).forEach(function (k) { if (headerSet.indexOf(k) === -1) headerSet.push(k); });
+        }
+      });
+      var rows = arr.map(function (obj) {
+        var row = {};
+        headerSet.forEach(function (h) {
+          var v = obj ? obj[h] : undefined;
+          row[h] = v === undefined || v === null ? "" : (typeof v === "object" ? JSON.stringify(v) : String(v));
+        });
+        return row;
+      });
+      return { headers: headerSet, rows: rows };
+    }
+
+    if (Array.isArray(first)) {
+      var firstIsAllStrings = first.every(function (v) { return typeof v === "string"; });
+      var headers2 = firstIsAllStrings ? first.map(String) : first.map(function (_, i) { return "Column " + (i + 1); });
+      var startIdx = firstIsAllStrings ? 1 : 0;
+      var rows2 = arr.slice(startIdx).map(function (r) {
+        var row = {};
+        headers2.forEach(function (h, idx) { row[h] = r[idx] !== undefined ? String(r[idx]) : ""; });
+        return row;
+      });
+      return { headers: headers2, rows: rows2 };
+    }
+
+    var rows3 = arr.map(function (v) { return { "Value": String(v) }; });
+    return { headers: ["Value"], rows: rows3 };
+  }
+
+  function cellToString(v) {
+    if (v === undefined || v === null) return "";
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v);
+  }
+
+  // Only the first sheet is used — unified ad reports are single-sheet exports.
+  function parseExcelFirstSheet(bytes) {
+    var workbook = XLSX.read(bytes, { type: "array" });
+    var name = workbook.SheetNames[0];
+    var ws = workbook.Sheets[name];
+    var json = XLSX.utils.sheet_to_json(ws, { defval: "", raw: true });
+    if (json.length === 0) return { headers: [], rows: [] };
+    var headerSet = [];
+    json.forEach(function (obj) { Object.keys(obj).forEach(function (k) { if (headerSet.indexOf(k) === -1) headerSet.push(k); }); });
+    var rows = json.map(function (obj) {
+      var row = {};
+      headerSet.forEach(function (h) { row[h] = unwrapFormula(cellToString(obj[h])); });
+      return row;
+    });
+    return { headers: headerSet, rows: rows };
+  }
+
+  // =========================================================================
+  // Column resolution — maps this report's actual headers onto the fields
+  // the dashboard needs, tolerating a few common naming variants.
+  // =========================================================================
+
+  var COLUMN_ALIASES = {
+    month: ["month"],
+    year: ["year"],
+    date: ["date", "day", "report date"],
+    impressions: ["impressions"],
+    clicks: ["clicks"],
+    spend: ["total cost", "spend", "cost", "ad spend"],
+    revenue: ["sales", "revenue", "total sales", "attributed sales"],
+    orders: ["purchases", "orders", "conversions", "units ordered"]
+  };
+
+  function findColumn(headers, aliasList) {
+    var normalized = headers.map(function (h) { return h.trim().toLowerCase(); });
+    for (var i = 0; i < aliasList.length; i++) {
+      var idx = normalized.indexOf(aliasList[i]);
+      if (idx !== -1) return headers[idx];
+    }
+    return null;
+  }
+
+  function resolveColumns(headers) {
+    return {
+      month: findColumn(headers, COLUMN_ALIASES.month),
+      year: findColumn(headers, COLUMN_ALIASES.year),
+      date: findColumn(headers, COLUMN_ALIASES.date),
+      impressions: findColumn(headers, COLUMN_ALIASES.impressions),
+      clicks: findColumn(headers, COLUMN_ALIASES.clicks),
+      spend: findColumn(headers, COLUMN_ALIASES.spend),
+      revenue: findColumn(headers, COLUMN_ALIASES.revenue),
+      orders: findColumn(headers, COLUMN_ALIASES.orders)
+    };
+  }
+
+  function missingRequiredColumns(cols) {
+    var missing = [];
+    if (!(cols.month && cols.year) && !cols.date) missing.push("a Month+Year pair or a Date column");
+    if (!cols.impressions) missing.push("Impressions");
+    if (!cols.clicks) missing.push("Clicks");
+    if (!cols.spend) missing.push("Ad spend (Total cost / Spend / Cost)");
+    if (!cols.revenue) missing.push("Revenue (Sales / Revenue)");
+    if (!cols.orders) missing.push("Orders (Purchases / Orders / Conversions)");
+    return missing;
+  }
+
+  // =========================================================================
+  // Aggregation
+  // =========================================================================
+
+  var MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  function toNum(raw) {
+    if (raw === undefined || raw === null) return 0;
+    var t = String(raw).trim().replace(/[$,%]/g, "");
+    var n = Number(t);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function getRowPeriod(row, cols) {
+    var year, month;
+    if (cols.year && cols.month) {
+      year = parseInt(row[cols.year], 10);
+      month = parseInt(row[cols.month], 10);
+    } else if (cols.date) {
+      var d = new Date(row[cols.date]);
+      if (isNaN(d.getTime())) return null;
+      year = d.getFullYear(); month = d.getMonth() + 1;
+    } else {
+      return null;
+    }
+    if (!year || !month || month < 1 || month > 12) return null;
+    return { year: year, month: month };
+  }
+
+  function aggregateByPeriod(rows, cols, granularity) {
+    var map = {};
+    rows.forEach(function (row) {
+      var p = getRowPeriod(row, cols);
+      if (!p) return;
+      var key, label, sortKey;
+      if (granularity === "quarterly") {
+        var q = Math.floor((p.month - 1) / 3) + 1;
+        key = p.year + "-Q" + q;
+        label = "Q" + q + " '" + String(p.year).slice(2);
+        sortKey = p.year * 4 + q;
+      } else {
+        key = p.year + "-" + (p.month < 10 ? "0" : "") + p.month;
+        label = MONTH_NAMES[p.month - 1] + " '" + String(p.year).slice(2);
+        sortKey = p.year * 12 + p.month;
+      }
+      if (!map[key]) map[key] = { key: key, label: label, sortKey: sortKey, impressions: 0, clicks: 0, spend: 0, revenue: 0, orders: 0 };
+      var b = map[key];
+      b.impressions += toNum(row[cols.impressions]);
+      b.clicks += toNum(row[cols.clicks]);
+      b.spend += toNum(row[cols.spend]);
+      b.revenue += toNum(row[cols.revenue]);
+      b.orders += toNum(row[cols.orders]);
+    });
+
+    var periods = Object.keys(map).map(function (k) { return map[k]; });
+    periods.sort(function (a, b) { return a.sortKey - b.sortKey; });
+    periods.forEach(function (p) {
+      p.roas = p.spend > 0 ? p.revenue / p.spend : 0;
+      p.ctr = p.impressions > 0 ? (p.clicks / p.impressions) * 100 : 0;
+      p.cpc = p.clicks > 0 ? p.spend / p.clicks : 0;
+      p.cvr = p.clicks > 0 ? (p.orders / p.clicks) * 100 : 0;
+    });
+    return periods;
+  }
+
+  // =========================================================================
+  // Metrics
+  // =========================================================================
+
+  // goodDirection tells the callout engine which way is "good" for this
+  // metric: 'up', 'down', or 'neutral' (context-dependent on its own).
+  var METRICS = [
+    { key: "spend", label: "Ad Spend", format: "currency", goodDirection: "neutral" },
+    { key: "revenue", label: "Revenue", format: "currency", goodDirection: "up" },
+    { key: "roas", label: "ROAS", format: "ratio", goodDirection: "up" },
+    { key: "impressions", label: "Impressions", format: "integer", goodDirection: "neutral" },
+    { key: "clicks", label: "Clicks", format: "integer", goodDirection: "neutral" },
+    { key: "ctr", label: "CTR", format: "percent", goodDirection: "up" },
+    { key: "cpc", label: "CPC", format: "currency", goodDirection: "down" },
+    { key: "orders", label: "Orders", format: "integer", goodDirection: "up" },
+    { key: "cvr", label: "CVR", format: "percent", goodDirection: "up" }
+  ];
+  var METRICS_BY_KEY = {};
+  METRICS.forEach(function (m) { METRICS_BY_KEY[m.key] = m; });
+
+  function formatValue(value, format) {
+    if (value === null || value === undefined || !isFinite(value)) return "–";
+    switch (format) {
+      case "currency": return "$" + value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      case "percent": return value.toLocaleString(undefined, { maximumFractionDigits: 2 }) + "%";
+      case "ratio": return value.toLocaleString(undefined, { maximumFractionDigits: 2 }) + "x";
+      case "integer": return Math.round(value).toLocaleString();
+      default: return String(value);
+    }
+  }
+
+  // =========================================================================
+  // Callout engine
+  //
+  // This is a deterministic, rule-based narrative generator — not a live
+  // model call. A static page hosted on GitHub Pages has no server to hold
+  // an API key safely, so calling a real LLM from here would mean shipping
+  // a secret to every visitor's browser. These callouts instead encode the
+  // kind of period-over-period read a media buyer gives a client: they cite
+  // the actual numbers, classify direction against what's "good" for that
+  // metric, and flag a few common cross-metric patterns (rising CPC with
+  // falling CTR, spend outrunning ROAS, etc).
+  // =========================================================================
+
+  function pctChange(val, prevVal) {
+    if (prevVal === undefined || prevVal === null || prevVal === 0 || !isFinite(prevVal)) return null;
+    return ((val - prevVal) / Math.abs(prevVal)) * 100;
+  }
+
+  function classifyChange(pct, goodDirection) {
+    var magnitude = Math.abs(pct);
+    if (magnitude < 5) return "STEADY";
+    if (goodDirection === "neutral") return pct > 0 ? "UP" : "DOWN";
+    var improved = goodDirection === "up" ? pct > 0 : pct < 0;
+    return improved ? "GROWTH" : "RISK";
+  }
+
+  function buildMetricCallout(metric, latest, prev) {
+    var val = latest[metric.key];
+    if (!prev) {
+      return { tag: "STEADY", metric: metric.label, text: metric.label + " stands at " + formatValue(val, metric.format) + " for " + latest.label + " — no prior period yet to compare against." };
+    }
+    var prevVal = prev[metric.key];
+    var pct = pctChange(val, prevVal);
+    if (pct === null) {
+      return { tag: "STEADY", metric: metric.label, text: metric.label + " is " + formatValue(val, metric.format) + " in " + latest.label + ", up from a zero base in " + prev.label + "." };
+    }
+    var tag = classifyChange(pct, metric.goodDirection);
+    var dir = pct >= 0 ? "up" : "down";
+    var pctStr = Math.abs(pct).toFixed(1) + "%";
+    var sentence;
+
+    switch (metric.key) {
+      case "spend":
+        sentence = "Ad spend is " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + " in " + latest.label + ".";
+        sentence += tag === "STEADY" ? " Budget held roughly flat period over period."
+          : pct > 0 ? " Worth confirming this scale-up is buying incremental performance rather than just more of the same."
+          : " Confirm this was a deliberate pullback rather than lost auction share.";
+        break;
+      case "revenue":
+        sentence = "Revenue is " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + " from " + formatValue(prevVal, metric.format) + " in " + prev.label + ".";
+        sentence += tag === "GROWTH" ? " A clear topline win worth leading the readout with."
+          : tag === "RISK" ? " This is the number a client asks about first — have a root cause ready before the call."
+          : " Roughly flat topline period over period.";
+        break;
+      case "roas":
+        sentence = "ROAS moved from " + formatValue(prevVal, metric.format) + " to " + formatValue(val, metric.format) + " (" + dir + " " + pctStr + ").";
+        sentence += tag === "GROWTH" ? " Efficiency is improving — a reasonable moment to test incremental budget."
+          : tag === "RISK" ? " Efficiency is eroding; if spend held flat this points to rising competition or aging creative rather than a budget problem."
+          : " Efficiency held steady.";
+        break;
+      case "impressions":
+        sentence = "Impressions are " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+        sentence += " On its own this only reflects auction reach — read it against CTR and spend to know whether it's helping.";
+        break;
+      case "clicks":
+        sentence = "Clicks are " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+        sentence += " Pair this with CVR to see whether the extra traffic is converting at the same rate.";
+        break;
+      case "ctr":
+        sentence = "CTR is " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+        sentence += tag === "GROWTH" ? " Creative and targeting are resonating better with shoppers — a candidate to scale."
+          : tag === "RISK" ? " Often a sign of creative fatigue or targeting drifting into lower-intent placements — worth a creative refresh or a targeting audit."
+          : " Engagement held steady.";
+        break;
+      case "cpc":
+        sentence = "CPC is " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+        sentence += tag === "GROWTH" ? " Traffic is getting cheaper — good for efficient scaling."
+          : tag === "RISK" ? " Rising cost per click without a matching lift in conversion will compress margin quickly."
+          : " Cost per click held steady.";
+        break;
+      case "orders":
+        sentence = "Orders are " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+        sentence += tag === "GROWTH" ? " Demand is translating into actual sales volume."
+          : tag === "RISK" ? " Worth checking whether this tracks a seasonal dip or a genuine conversion problem."
+          : " Order volume held steady.";
+        break;
+      case "cvr":
+        sentence = "Conversion rate is " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+        sentence += tag === "GROWTH" ? " Traffic quality or the listing experience itself is converting better."
+          : tag === "RISK" ? " Check listing content, price competitiveness, and reviews before assuming it's a targeting issue."
+          : " Conversion rate held steady.";
+        break;
+      default:
+        sentence = metric.label + " is " + dir + " " + pctStr + " to " + formatValue(val, metric.format) + ".";
+    }
+
+    return { tag: tag, metric: metric.label, text: sentence };
+  }
+
+  function buildSynthesisCallouts(selectedKeys, latest, prev) {
+    var out = [];
+    if (!prev) return out;
+    var has = function (k) { return selectedKeys.indexOf(k) !== -1; };
+    var pctOf = function (k) { return pctChange(latest[k], prev[k]); };
+
+    if (has("spend") && has("roas")) {
+      var spendPct = pctOf("spend"), roasPct = pctOf("roas");
+      if (spendPct !== null && roasPct !== null) {
+        if (spendPct > 5 && roasPct < -5) {
+          out.push({ tag: "RISK", metric: "Spend × ROAS", text: "Spend is scaling (+" + spendPct.toFixed(1) + "%) while ROAS is falling (" + roasPct.toFixed(1) + "%) — the account is buying growth at a worsening price. Consider holding incremental budget until efficiency stabilizes." });
+        } else if (spendPct < -5 && roasPct > 5) {
+          out.push({ tag: "GROWTH", metric: "Spend × ROAS", text: "Spend pulled back (" + spendPct.toFixed(1) + "%) while ROAS improved (+" + roasPct.toFixed(1) + "%) — the remaining budget is working harder. A strong case for testing incremental reinvestment." });
+        } else if (spendPct > 5 && roasPct > 5) {
+          out.push({ tag: "GROWTH", metric: "Spend × ROAS", text: "Spend and ROAS rose together (+" + spendPct.toFixed(1) + "% / +" + roasPct.toFixed(1) + "%) — an uncommon combination worth calling out, since scale usually costs some efficiency." });
+        }
+      }
+    }
+
+    if (has("ctr") && has("cpc")) {
+      var ctrPct = pctOf("ctr"), cpcPct = pctOf("cpc");
+      if (ctrPct !== null && cpcPct !== null) {
+        if (ctrPct < -5 && cpcPct > 5) {
+          out.push({ tag: "RISK", metric: "CTR × CPC", text: "CTR is down (" + ctrPct.toFixed(1) + "%) and CPC is up (+" + cpcPct.toFixed(1) + "%) at the same time — a classic creative-fatigue signature. A creative refresh or tighter targeting should move both numbers." });
+        } else if (ctrPct > 5 && cpcPct < -5) {
+          out.push({ tag: "GROWTH", metric: "CTR × CPC", text: "CTR is up (+" + ctrPct.toFixed(1) + "%) while CPC is down (" + cpcPct.toFixed(1) + "%) — the auction is rewarding this creative/targeting combination. Worth expanding into adjacent keywords or placements." });
+        }
+      }
+    }
+
+    if (has("revenue") && has("orders")) {
+      var aovLatest = latest.orders > 0 ? latest.revenue / latest.orders : null;
+      var aovPrev = prev.orders > 0 ? prev.revenue / prev.orders : null;
+      if (aovLatest !== null && aovPrev !== null && aovPrev !== 0) {
+        var aovPct = ((aovLatest - aovPrev) / aovPrev) * 100;
+        if (Math.abs(aovPct) >= 5) {
+          out.push({
+            tag: aovPct > 0 ? "GROWTH" : "RISK",
+            metric: "Revenue ÷ Orders (AOV)",
+            text: "Average order value moved from $" + aovPrev.toFixed(2) + " to $" + aovLatest.toFixed(2) + " (" + (aovPct >= 0 ? "+" : "") + aovPct.toFixed(1) + "%). " +
+              (aovPct > 0 ? "Basket size is growing — check whether bundling or upsell placements are driving it." : "Basket size is shrinking even if order count looks fine — worth a pricing or assortment review.")
+          });
+        }
+      }
+    }
+
+    if (has("clicks") && has("cvr")) {
+      var clicksPct = pctOf("clicks"), cvrPct = pctOf("cvr");
+      if (clicksPct !== null && cvrPct !== null) {
+        if (clicksPct > 5 && cvrPct < -5) {
+          out.push({ tag: "RISK", metric: "Clicks × CVR", text: "Traffic grew (+" + clicksPct.toFixed(1) + "%) but conversion rate fell (" + cvrPct.toFixed(1) + "%) — the extra clicks look lower-quality. Review match types and search-term reports for loosely relevant traffic." });
+        } else if (clicksPct > 5 && cvrPct > 5) {
+          out.push({ tag: "GROWTH", metric: "Clicks × CVR", text: "Traffic and conversion rate both improved (+" + clicksPct.toFixed(1) + "% / +" + cvrPct.toFixed(1) + "%) — a genuinely healthy growth signal, not just more spend." });
+        }
+      }
+    }
+
+    if (has("impressions") && has("ctr")) {
+      var imprPct = pctOf("impressions"), ctrPct2 = pctOf("ctr");
+      if (imprPct !== null && ctrPct2 !== null && imprPct > 5 && ctrPct2 < -5) {
+        out.push({ tag: "RISK", metric: "Impressions × CTR", text: "Impressions rose (+" + imprPct.toFixed(1) + "%) while CTR fell (" + ctrPct2.toFixed(1) + "%) — the account may be winning cheaper, lower-relevance placements. Check placement and match-type reports before assuming demand softened." });
+      }
+    }
+
+    return out;
+  }
+
+  // -------------------------------------------------------------------------
+  // Aggregate mode — totals every row into one blended figure per metric,
+  // with no period-over-period comparison at all (independent of the chart's
+  // Monthly/Quarterly toggle, since "aggregate" means all data at once).
+  // -------------------------------------------------------------------------
+
+  function aggregateAllRows(rows, cols) {
+    var totals = { impressions: 0, clicks: 0, spend: 0, revenue: 0, orders: 0 };
+    rows.forEach(function (row) {
+      totals.impressions += toNum(row[cols.impressions]);
+      totals.clicks += toNum(row[cols.clicks]);
+      totals.spend += toNum(row[cols.spend]);
+      totals.revenue += toNum(row[cols.revenue]);
+      totals.orders += toNum(row[cols.orders]);
+    });
+    totals.roas = totals.spend > 0 ? totals.revenue / totals.spend : 0;
+    totals.ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
+    totals.cpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0;
+    totals.cvr = totals.clicks > 0 ? (totals.orders / totals.clicks) * 100 : 0;
+    return totals;
+  }
+
+  // Human-readable date range for context, independent of the chart's
+  // current granularity — always derived at the finest (monthly) grain.
+  function reportRangeLabel(rows, cols) {
+    var months = aggregateByPeriod(rows, cols, "monthly");
+    if (months.length === 0) return "the reporting window";
+    if (months.length === 1) return months[0].label;
+    return months[0].label + " – " + months[months.length - 1].label;
+  }
+
+  function buildAggregateMetricCallout(metric, totals, rangeLabel) {
+    var val = totals[metric.key];
+    var formatted = formatValue(val, metric.format);
+    var sentence;
+    switch (metric.key) {
+      case "spend": sentence = "Total ad spend across " + rangeLabel + " was " + formatted + "."; break;
+      case "revenue": sentence = "Total revenue across " + rangeLabel + " was " + formatted + "."; break;
+      case "roas": sentence = "Blended ROAS across " + rangeLabel + " is " + formatted + " — each dollar of spend returned about $" + val.toFixed(2) + " in attributed revenue overall."; break;
+      case "impressions": sentence = "The account generated " + formatted + " impressions in total across " + rangeLabel + "."; break;
+      case "clicks": sentence = "Total clicks across " + rangeLabel + ": " + formatted + "."; break;
+      case "ctr": sentence = "Blended CTR across " + rangeLabel + " is " + formatted + "."; break;
+      case "cpc": sentence = "Blended CPC across " + rangeLabel + " is " + formatted + "."; break;
+      case "orders": sentence = "The account drove " + formatted + " orders in total across " + rangeLabel + "."; break;
+      case "cvr": sentence = "Blended conversion rate across " + rangeLabel + " is " + formatted + "."; break;
+      default: sentence = metric.label + " totals " + formatted + " across " + rangeLabel + ".";
+    }
+    return { tag: "TOTAL", metric: metric.label, text: sentence };
+  }
+
+  function buildAggregateSynthesis(selectedKeys, totals, rangeLabel) {
+    var out = [];
+    var has = function (k) { return selectedKeys.indexOf(k) !== -1; };
+    if (has("revenue") && has("orders") && totals.orders > 0) {
+      var aov = totals.revenue / totals.orders;
+      out.push({ tag: "TOTAL", metric: "Revenue ÷ Orders (AOV)", text: "Average order value across " + rangeLabel + " is $" + aov.toFixed(2) + "." });
+    }
+    return out;
+  }
+
+  // =========================================================================
+  // State + DOM
+  // =========================================================================
+
+  var state = {
+    rawRows: null,
+    cols: null,
+    granularity: "monthly",
+    leftMetric1: "spend",
+    leftMetric2: "revenue",
+    rightMetric: "roas",
+    calloutMode: "pop" // "pop" (period over period) or "aggregate"
+  };
+
+  var chartInstance = null;
+
+  var el = {
+    waitingView: document.getElementById("waitingView"),
+    errorView: document.getElementById("errorView"),
+    errorMessage: document.getElementById("errorMessage"),
+    dashboardView: document.getElementById("dashboardView"),
+    statusPill: document.getElementById("statusPill"),
+    statusText: document.getElementById("statusText"),
+    filenameLabel: document.getElementById("filenameLabel"),
+    kpiStrip: document.getElementById("kpiStrip"),
+    periodToggle: document.getElementById("periodToggle"),
+    leftMetric1: document.getElementById("leftMetric1"),
+    leftMetric2: document.getElementById("leftMetric2"),
+    rightMetric: document.getElementById("rightMetric"),
+    chartCanvas: document.getElementById("chartCanvas"),
+    fileInput: document.getElementById("fileInput"),
+    openFileBtn: document.getElementById("openFileBtn"),
+    dropzone: document.getElementById("dropzone"),
+    resetBtn: document.getElementById("resetBtn"),
+    errorResetBtn: document.getElementById("errorResetBtn"),
+    calloutMetricPicker: document.getElementById("calloutMetricPicker"),
+    calloutsList: document.getElementById("calloutsList"),
+    calloutSelectAll: document.getElementById("calloutSelectAll"),
+    calloutGenerateBtn: document.getElementById("calloutGenerateBtn"),
+    calloutsOpenBtn: document.getElementById("calloutsOpenBtn"),
+    calloutsClearBtn: document.getElementById("calloutsClearBtn"),
+    calloutsModalBackdrop: document.getElementById("calloutsModalBackdrop"),
+    calloutsModalClose: document.getElementById("calloutsModalClose"),
+    calloutsModalCancel: document.getElementById("calloutsModalCancel"),
+    calloutModeToggle: document.getElementById("calloutModeToggle"),
+    calloutModeHint: document.getElementById("calloutModeHint"),
+    sidebar: document.getElementById("sidebar"),
+    sidebarToggle: document.getElementById("sidebarToggle"),
+    sidebarResetBtn: document.getElementById("sidebarResetBtn"),
+    navItems: document.querySelectorAll(".nav-item")
+  };
+
+  function showPanel(name) {
+    el.waitingView.classList.toggle("hidden", name !== "waiting");
+    el.errorView.classList.toggle("hidden", name !== "error");
+    el.dashboardView.classList.toggle("hidden", name !== "dashboard");
+  }
+
+  function setStatus(kind, label) {
+    el.statusPill.className = "status-pill " + kind;
+    el.statusText.textContent = label;
+  }
+
+  function showError(message) {
+    el.errorMessage.textContent = message;
+    setStatus("error", "Couldn't load report");
+    showPanel("error");
+  }
+
+  function resetToWaiting() {
+    state.rawRows = null;
+    state.cols = null;
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    el.filenameLabel.textContent = "";
+    setStatus("waiting", "Waiting for a report");
+    showPanel("waiting");
+    resetCalloutsUI();
+  }
+
+  function populateMetricSelectors() {
+    [el.leftMetric1, el.leftMetric2, el.rightMetric].forEach(function (select) {
+      select.innerHTML = "";
+      METRICS.forEach(function (m) {
+        var opt = document.createElement("option");
+        opt.value = m.key;
+        opt.textContent = m.label;
+        select.appendChild(opt);
+      });
+    });
+    el.leftMetric1.value = state.leftMetric1;
+    el.leftMetric2.value = state.leftMetric2;
+    el.rightMetric.value = state.rightMetric;
+  }
+
+  function currentPeriods() {
+    return aggregateByPeriod(state.rawRows, state.cols, state.granularity);
+  }
+
+  function populateCalloutPicker() {
+    el.calloutMetricPicker.innerHTML = "";
+    METRICS.forEach(function (m) {
+      var wrap = document.createElement("label");
+      wrap.className = "callout-check";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = m.key;
+      input.checked = false;
+      input.addEventListener("change", function () {
+        wrap.classList.toggle("checked", input.checked);
+      });
+      var span = document.createElement("span");
+      span.textContent = m.label;
+      wrap.appendChild(input);
+      wrap.appendChild(span);
+      el.calloutMetricPicker.appendChild(wrap);
+    });
+  }
+
+  function selectedCalloutMetrics() {
+    var boxes = el.calloutMetricPicker.querySelectorAll("input[type=checkbox]");
+    return Array.prototype.filter.call(boxes, function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+  }
+
+  // Clears any generated callouts back to a blank slate: empties the list,
+  // unchecks every metric, and resets the comparison mode — without
+  // touching the rest of the dashboard. Used by the persistent "Clear"
+  // button and whenever a fresh report loads.
+  function resetCalloutsUI() {
+    el.calloutsList.classList.add("hidden");
+    el.calloutsList.innerHTML = "";
+    el.calloutsModalBackdrop.classList.add("hidden");
+    var boxes = el.calloutMetricPicker.querySelectorAll("input[type=checkbox]");
+    Array.prototype.forEach.call(boxes, function (cb) {
+      cb.checked = false;
+      cb.closest(".callout-check").classList.remove("checked");
+    });
+    setCalloutMode("pop");
+  }
+
+  function setCalloutMode(mode) {
+    state.calloutMode = mode;
+    Array.prototype.forEach.call(el.calloutModeToggle.children, function (b) {
+      b.classList.toggle("active", b.getAttribute("data-val") === mode);
+    });
+    if (mode === "aggregate") {
+      el.calloutModeHint.textContent = "Totals every row in the report into one blended figure per metric, regardless of the chart's period setting.";
+    } else {
+      var granularityLabel = state.granularity === "quarterly" ? "the latest quarter to the quarter before it" : "the latest month to the month before it";
+      el.calloutModeHint.textContent = "Compares " + granularityLabel + " (based on the chart's current granularity).";
+    }
+  }
+
+  function renderCallouts() {
+    el.calloutsList.innerHTML = "";
+    el.calloutsList.classList.remove("hidden");
+    if (!state.rawRows) return;
+
+    var selected = selectedCalloutMetrics();
+    if (selected.length === 0) {
+      var empty = document.createElement("li");
+      empty.className = "callout-empty-item";
+      empty.textContent = "Click Generate callouts and select at least one metric.";
+      el.calloutsList.appendChild(empty);
+      return;
+    }
+
+    var items;
+    if (state.calloutMode === "aggregate") {
+      var totals = aggregateAllRows(state.rawRows, state.cols);
+      var rangeLabel = reportRangeLabel(state.rawRows, state.cols);
+      items = selected.map(function (key) { return buildAggregateMetricCallout(METRICS_BY_KEY[key], totals, rangeLabel); });
+      items = items.concat(buildAggregateSynthesis(selected, totals, rangeLabel));
+    } else {
+      var periods = currentPeriods();
+      if (periods.length === 0) return;
+      var latest = periods[periods.length - 1];
+      var prev = periods.length > 1 ? periods[periods.length - 2] : null;
+      items = selected.map(function (key) { return buildMetricCallout(METRICS_BY_KEY[key], latest, prev); });
+      items = items.concat(buildSynthesisCallouts(selected, latest, prev));
+    }
+
+    items.forEach(function (item) {
+      var li = document.createElement("li");
+      li.className = "callout-item";
+
+      var tag = document.createElement("span");
+      tag.className = "callout-tag tag-" + item.tag.toLowerCase();
+      tag.textContent = item.tag;
+
+      var body = document.createElement("span");
+      body.className = "callout-body";
+      var strong = document.createElement("strong");
+      strong.textContent = item.metric + ": ";
+      body.appendChild(strong);
+      body.appendChild(document.createTextNode(item.text));
+
+      li.appendChild(tag);
+      li.appendChild(body);
+      el.calloutsList.appendChild(li);
+    });
+  }
+
+  function renderKPIs(periods) {
+    el.kpiStrip.innerHTML = "";
+    if (periods.length === 0) return;
+    var latest = periods[periods.length - 1];
+    var prev = periods.length > 1 ? periods[periods.length - 2] : null;
+
+    METRICS.forEach(function (m) {
+      var card = document.createElement("div");
+      card.className = "kpi-card";
+
+      var label = document.createElement("div");
+      label.className = "label";
+      label.textContent = m.label + " · " + latest.label;
+
+      var value = document.createElement("div");
+      value.className = "value";
+      value.textContent = formatValue(latest[m.key], m.format);
+
+      var delta = document.createElement("div");
+      delta.className = "delta";
+      if (prev) {
+        var prevVal = prev[m.key];
+        if (prevVal !== 0 && isFinite(prevVal)) {
+          var pct = ((latest[m.key] - prevVal) / Math.abs(prevVal)) * 100;
+          var arrow = pct >= 0 ? "▲" : "▼";
+          delta.textContent = arrow + " " + Math.abs(pct).toFixed(1) + "% vs " + prev.label;
+        } else {
+          delta.textContent = "— vs " + prev.label;
+        }
+      } else {
+        delta.textContent = "No prior period";
+      }
+
+      card.appendChild(label);
+      card.appendChild(value);
+      card.appendChild(delta);
+      el.kpiStrip.appendChild(card);
+    });
+  }
+
+  function renderChart(periods) {
+    var m1 = METRICS_BY_KEY[state.leftMetric1];
+    var m2 = METRICS_BY_KEY[state.leftMetric2];
+    var m3 = METRICS_BY_KEY[state.rightMetric];
+    var labels = periods.map(function (p) { return p.label; });
+
+    var datasets = [
+      {
+        label: m1.label, data: periods.map(function (p) { return p[m1.key]; }),
+        yAxisID: "yLeft", borderColor: "#FFFFFF", backgroundColor: "#FFFFFF",
+        borderWidth: 2, pointRadius: 3, pointBackgroundColor: "#FFFFFF", tension: 0.3
+      },
+      {
+        label: m2.label, data: periods.map(function (p) { return p[m2.key]; }),
+        yAxisID: "yLeft", borderColor: "#BDBDBD", backgroundColor: "#BDBDBD",
+        borderWidth: 2, borderDash: [6, 4], pointRadius: 3, pointBackgroundColor: "#BDBDBD", tension: 0.3
+      },
+      {
+        label: m3.label, data: periods.map(function (p) { return p[m3.key]; }),
+        yAxisID: "yRight", borderColor: "#8A8A8A", backgroundColor: "#8A8A8A",
+        borderWidth: 2, borderDash: [2, 3], pointStyle: "rectRot", pointRadius: 4,
+        pointBackgroundColor: "#8A8A8A", tension: 0.3
+      }
+    ];
+
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(el.chartCanvas.getContext("2d"), {
+      type: "line",
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: "#DADADA", font: { family: "'Neue Montreal','General Sans',sans-serif", size: 12 }, usePointStyle: true }
+          },
+          tooltip: {
+            backgroundColor: "#1A1A1A", borderColor: "rgba(255,255,255,0.15)", borderWidth: 1,
+            titleColor: "#FFFFFF", bodyColor: "#DADADA",
+            callbacks: {
+              label: function (ctx) {
+                var metric = ctx.dataset.yAxisID === "yRight" ? m3 : (ctx.datasetIndex === 0 ? m1 : m2);
+                return ctx.dataset.label + ": " + formatValue(ctx.parsed.y, metric.format);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#8A8A8A", font: { family: "'Neue Montreal','General Sans',sans-serif" } },
+            grid: { color: "rgba(255,255,255,0.06)" }
+          },
+          yLeft: {
+            position: "left",
+            ticks: { color: "#8A8A8A", font: { family: "'Neue Montreal','General Sans',sans-serif" } },
+            grid: { color: "rgba(255,255,255,0.06)" }
+          },
+          yRight: {
+            position: "right",
+            ticks: { color: "#8A8A8A", font: { family: "'Neue Montreal','General Sans',sans-serif" } },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+  }
+
+  function refreshDashboard() {
+    var periods = currentPeriods();
+    renderKPIs(periods);
+    renderChart(periods);
+    // Callouts are only (re)built on demand via the Generate button — see
+    // the calloutsStartBtn/calloutGenerateBtn wiring below — except when a
+    // list is already showing, in which case a period-granularity change
+    // should keep it in sync rather than leave it referencing stale periods.
+    if (!el.calloutsList.classList.contains("hidden")) renderCallouts();
+  }
+
+  // =========================================================================
+  // Dispatch by type / extension
+  // =========================================================================
+
+  function finishLoad(parsed, meta) {
+    if (!parsed || parsed.headers.length === 0 || parsed.rows.length === 0) {
+      showError('"' + meta.name + '" doesn\'t seem to contain any readable rows.');
+      return;
+    }
+    var cols = resolveColumns(parsed.headers);
+    var missing = missingRequiredColumns(cols);
+    if (missing.length > 0) {
+      showError('"' + meta.name + '" is missing columns this dashboard needs: ' + missing.join(", ") + ".");
+      return;
+    }
+    state.rawRows = parsed.rows;
+    state.cols = cols;
+    state.granularity = "monthly";
+    Array.prototype.forEach.call(el.periodToggle.children, function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-val") === "monthly");
+    });
+    el.filenameLabel.textContent = meta.name;
+    setStatus("loaded", "Loaded");
+    showPanel("dashboard");
+    resetCalloutsUI();
+    refreshDashboard();
+  }
+
+  function handleIncomingFile(file) {
+    try {
+      if (!file || !file.content) { showError("No file content was received."); return; }
+      setStatus("loading", "Loading " + file.name + "…");
+
+      var parts = splitDataUrl(file.content);
+      var ext = (file.name.split(".").pop() || "").toLowerCase();
+      var type = (file.type || "").toLowerCase();
+
+      var isExcel = type.indexOf("spreadsheetml") !== -1 || type.indexOf("ms-excel") !== -1 || ext === "xlsx" || ext === "xls";
+      var isJSON = type.indexOf("json") !== -1 || ext === "json";
+      var isCSV = type.indexOf("csv") !== -1 || ext === "csv";
+
+      if (isExcel) {
+        if (typeof XLSX === "undefined") {
+          showError("The Excel reader library failed to load. Check your network connection and reload the page.");
+          return;
+        }
+        finishLoad(parseExcelFirstSheet(base64ToBytes(parts.base64)), { name: file.name });
+        return;
+      }
+
+      if (isJSON) {
+        finishLoad(parseJSONData(base64ToText(parts.base64)), { name: file.name });
+        return;
+      }
+
+      if (isCSV) {
+        finishLoad(parseCSV(base64ToText(parts.base64)), { name: file.name });
+        return;
+      }
+
+      // Unknown type/extension — sniff: try JSON, then fall back to CSV.
+      var text = base64ToText(parts.base64);
+      try {
+        finishLoad(parseJSONData(text), { name: file.name });
+      } catch (jsonErr) {
+        var sniffedCSV = parseCSV(text);
+        if (sniffedCSV.headers.length > 0) finishLoad(sniffedCSV, { name: file.name });
+        else showError('"' + file.name + '" isn\'t a CSV, Excel, or JSON file this tool recognizes.');
+      }
+    } catch (err) {
+      showError('Couldn\'t read "' + (file && file.name ? file.name : "this file") + '": ' + (err && err.message ? err.message : String(err)));
+    }
+  }
+
+  // =========================================================================
+  // Manual file picker + drag-and-drop (standalone fallback)
+  // =========================================================================
+
+  function loadFromFileObject(f) {
+    var reader = new FileReader();
+    reader.onload = function () { handleIncomingFile({ name: f.name, type: f.type, content: reader.result }); };
+    reader.onerror = function () { showError("Couldn't read the selected file."); };
+    reader.readAsDataURL(f);
+  }
+
+  el.fileInput.addEventListener("change", function (e) {
+    var f = e.target.files[0];
+    if (f) loadFromFileObject(f);
+    e.target.value = "";
+  });
+  el.openFileBtn.addEventListener("click", function () { el.fileInput.click(); });
+  el.resetBtn.addEventListener("click", resetToWaiting);
+  el.errorResetBtn.addEventListener("click", resetToWaiting);
+
+  // Dropzone: click or Enter/Space opens the file dialog; dragging a file
+  // over it highlights the box, and dropping loads the file directly.
+  el.dropzone.addEventListener("click", function () { el.fileInput.click(); });
+  el.dropzone.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.fileInput.click(); }
+  });
+  var dragDepth = 0; // tracks nested dragenter/dragleave so a child element doesn't flicker the highlight off
+  el.dropzone.addEventListener("dragenter", function (e) {
+    e.preventDefault();
+    dragDepth++;
+    el.dropzone.classList.add("drag-active");
+  });
+  el.dropzone.addEventListener("dragover", function (e) { e.preventDefault(); });
+  el.dropzone.addEventListener("dragleave", function () {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) el.dropzone.classList.remove("drag-active");
+  });
+  el.dropzone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    dragDepth = 0;
+    el.dropzone.classList.remove("drag-active");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) loadFromFileObject(e.dataTransfer.files[0]);
+  });
+
+  // Safety net so dropping a file outside the dropzone never navigates the
+  // page away to a file:// URL instead of being ignored.
+  document.addEventListener("dragover", function (e) { e.preventDefault(); });
+  document.addEventListener("drop", function (e) { e.preventDefault(); });
+
+  // =========================================================================
+  // Controls
+  // =========================================================================
+
+  Array.prototype.forEach.call(el.periodToggle.children, function (btn) {
+    btn.addEventListener("click", function () {
+      state.granularity = btn.getAttribute("data-val");
+      Array.prototype.forEach.call(el.periodToggle.children, function (b) { b.classList.toggle("active", b === btn); });
+      if (state.calloutMode === "pop") setCalloutMode("pop"); // refresh the modal hint text
+      if (state.rawRows) refreshDashboard();
+    });
+  });
+
+  el.leftMetric1.addEventListener("change", function () { state.leftMetric1 = el.leftMetric1.value; if (state.rawRows) refreshDashboard(); });
+  el.leftMetric2.addEventListener("change", function () { state.leftMetric2 = el.leftMetric2.value; if (state.rawRows) refreshDashboard(); });
+  el.rightMetric.addEventListener("change", function () { state.rightMetric = el.rightMetric.value; if (state.rawRows) refreshDashboard(); });
+
+  function setAllCalloutChecks(checked) {
+    var boxes = el.calloutMetricPicker.querySelectorAll("input[type=checkbox]");
+    Array.prototype.forEach.call(boxes, function (cb) {
+      cb.checked = checked;
+      cb.closest(".callout-check").classList.toggle("checked", checked);
+    });
+  }
+  el.calloutSelectAll.addEventListener("click", function () { setAllCalloutChecks(true); });
+
+  function openCalloutsModal() { el.calloutsModalBackdrop.classList.remove("hidden"); }
+  function closeCalloutsModal() { el.calloutsModalBackdrop.classList.add("hidden"); }
+
+  el.calloutsOpenBtn.addEventListener("click", openCalloutsModal);
+  el.calloutsModalClose.addEventListener("click", closeCalloutsModal);
+  el.calloutsModalCancel.addEventListener("click", closeCalloutsModal);
+  el.calloutsModalBackdrop.addEventListener("click", function (e) {
+    if (e.target === el.calloutsModalBackdrop) closeCalloutsModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !el.calloutsModalBackdrop.classList.contains("hidden")) closeCalloutsModal();
+  });
+
+  Array.prototype.forEach.call(el.calloutModeToggle.children, function (btn) {
+    btn.addEventListener("click", function () { setCalloutMode(btn.getAttribute("data-val")); });
+  });
+
+  el.calloutGenerateBtn.addEventListener("click", function () {
+    closeCalloutsModal();
+    renderCallouts();
+  });
+
+  el.calloutsClearBtn.addEventListener("click", resetCalloutsUI);
+
+  // =========================================================================
+  // Sidebar: collapse toggle, in-page nav, reset
+  // =========================================================================
+
+  el.sidebarToggle.addEventListener("click", function () {
+    el.sidebar.classList.toggle("collapsed");
+  });
+
+  el.sidebarResetBtn.addEventListener("click", resetToWaiting);
+
+  Array.prototype.forEach.call(el.navItems, function (btn) {
+    btn.addEventListener("click", function () {
+      var target = document.getElementById(btn.getAttribute("data-target"));
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  populateMetricSelectors();
+  populateCalloutPicker();
+  resetToWaiting();
+})();
+</script>
+</body>
+</html>
