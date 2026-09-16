@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand Comparator</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000000;
+    --panel: rgba(255,255,255,0.045);
+    --panel-strong: rgba(255,255,255,0.075);
+    --panel-border: rgba(255,255,255,0.10);
+    --text:#F3F2ED;
+    --text-dim: rgba(243,242,237,0.58);
+    --text-faint: rgba(243,242,237,0.34);
+    --accent-a:#5EEAD4;
+    --accent-a-dim: rgba(94,234,212,0.16);
+    --accent-b:#F7B955;
+    --accent-b-dim: rgba(247,185,85,0.16);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font: 'Switzer','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --ease: cubic-bezier(.4,0,.2,1);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font);
+    font-feature-settings:"tnum" 1;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+
+  ::selection{ background:rgba(255,255,255,0.2); }
+
+  button{ font-family:inherit; }
+
+  /* ---------- Upload screen ---------- */
+  #upload-screen{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:32px;
+    background:
+      radial-gradient(circle at 22% 18%, rgba(94,234,212,0.07), transparent 42%),
+      radial-gradient(circle at 78% 82%, rgba(247,185,85,0.07), transparent 42%),
+      var(--bg);
+  }
+
+  .upload-eyebrow-mark{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:34px;
+  }
+  .upload-eyebrow-mark .chip{
+    width:9px;height:9px;border-radius:2px;
+  }
+  .upload-eyebrow-mark .chip.a{ background:var(--accent-a); }
+  .upload-eyebrow-mark .chip.b{ background:var(--accent-b); }
+  .upload-eyebrow-mark span.label{
+    color:var(--text-dim);
+    font-size:14px;
+    letter-spacing:0.01em;
+  }
+
+  #upload-screen h1{
+    font-size:clamp(28px, 4vw, 40px);
+    font-weight:600;
+    letter-spacing:-0.02em;
+    margin:0 0 10px;
+    text-align:center;
+  }
+  #upload-screen p.sub{
+    color:var(--text-dim);
+    font-size:16px;
+    margin:0 0 40px;
+    text-align:center;
+    max-width:440px;
+    line-height:1.5;
+  }
+
+  #dropzone{
+    width:min(560px, 90vw);
+    padding:56px 40px;
+    border-radius:16px;
+    border:1.5px dashed rgba(255,255,255,0.22);
+    background:var(--panel);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
+  }
+  #dropzone:hover{
+    border-color: rgba(255,255,255,0.38);
+    background: var(--panel-strong);
+  }
+  #dropzone.dragover{
+    border-color: var(--accent-a);
+    background: var(--accent-a-dim);
+    transform: scale(1.012);
+  }
+  #dropzone svg{ margin-bottom:20px; opacity:0.85; }
+  #dropzone .dz-title{
+    font-size:17px;
+    font-weight:500;
+    margin-bottom:6px;
+  }
+  #dropzone .dz-sub{
+    font-size:13.5px;
+    color:var(--text-faint);
+  }
+  #dropzone .dz-sub b{ color:var(--text-dim); font-weight:500; }
+  #file-input{ display:none; }
+
+  #upload-error{
+    margin-top:18px;
+    color:#F7B955;
+    font-size:13.5px;
+    min-height:18px;
+  }
+
+  /* ---------- Dashboard screen ---------- */
+  #dashboard-screen{ display:none; }
+
+  header.top-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:20px 28px;
+    border-bottom:1px solid var(--panel-border);
+    position:sticky;
+    top:0;
+    background:rgba(0,0,0,0.72);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    z-index:20;
+  }
+  header.top-bar .brandmark{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  header.top-bar .brandmark .chips{ display:flex; gap:4px; }
+  header.top-bar .brandmark .chips span{ width:8px;height:8px;border-radius:2px; }
+  header.top-bar .brandmark .chips span.a{ background:var(--accent-a); }
+  header.top-bar .brandmark .chips span.b{ background:var(--accent-b); }
+  header.top-bar .meta{
+    font-size:13px;
+    color:var(--text-faint);
+  }
+  header.top-bar button#reset-btn{
+    background:transparent;
+    border:1px solid var(--panel-border);
+    color:var(--text-dim);
+    padding:8px 14px;
+    border-radius:8px;
+    font-size:13px;
+    cursor:pointer;
+    transition: border-color .15s, color .15s;
+  }
+  header.top-bar button#reset-btn:hover{
+    border-color: rgba(255,255,255,0.32);
+    color:var(--text);
+  }
+
+  main{
+    max-width:1400px;
+    margin:0 auto;
+    padding:28px 28px 80px;
+  }
+  @media (max-width: 560px){
+    main{ padding:18px 14px 60px; }
+  }
+
+  .split{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width: 880px){
+    .split{ grid-template-columns:minmax(0,1fr); }
+  }
+
+  .side{
+    border-radius:16px;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    padding:18px 16px;
+    position:relative;
+    min-width:0;
+  }
+  .side::before{
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0;
+    height:2px;
+    border-radius:16px 16px 0 0;
+  }
+  .side[data-side="a"]::before{ background:var(--accent-a); }
+  .side[data-side="b"]::before{ background:var(--accent-b); }
+
+  .side-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:16px;
+    gap:12px;
+  }
+  .side-head .side-label{
+    font-size:12.5px;
+    color:var(--text-faint);
+  }
+  .side-head .side-label.a-color{ color:var(--accent-a); }
+  .side-head .side-label.b-color{ color:var(--accent-b); }
+
+  select.brand-select{
+    appearance:none;
+    -webkit-appearance:none;
+    background:#F3F2ED url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path d="M1 1L6 6L11 1" stroke="%23111111" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 12px center;
+    background-size:11px 7px;
+    color:#111111;
+    border:none;
+    border-radius:8px;
+    padding:9px 34px 9px 14px;
+    font-size:14.5px;
+    font-weight:500;
+    font-family:inherit;
+    cursor:pointer;
+    max-width:230px;
+  }
+  select.brand-select option{ color:#111111; background:#ffffff; }
+
+  /* Rows-per-page control (lives inline with the pagination bar) */
+  .row-limit-label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:11px;
+    color:var(--text-faint);
+    white-space:nowrap;
+  }
+  .row-limit-input{
+    width:40px;
+    background:rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    border-radius:6px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:11px;
+    padding:4px 5px;
+    text-align:center;
+  }
+  .row-limit-input:focus{
+    outline:none;
+    border-color: rgba(255,255,255,0.4);
+  }
+  /* hide native number spinners for a cleaner look */
+  .row-limit-input::-webkit-outer-spin-button,
+  .row-limit-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .row-limit-input[type=number]{ -moz-appearance:textfield; }
+
+  /* KPI strip: single-line row of metric mini-stats */
+  .kpi-strip{
+    display:flex;
+    width:100%;
+    border-radius:12px;
+    border:1px solid var(--panel-border);
+    background:rgba(255,255,255,0.035);
+    overflow:hidden;
+    margin-bottom:18px;
+  }
+  .kpi-cell{
+    flex:1 1 0;
+    min-width:0;
+    padding:12px 10px;
+    border-right:1px solid var(--panel-border);
+    text-align:left;
+  }
+  .kpi-cell:last-child{ border-right:none; }
+  .kpi-cell .kpi-label{
+    font-size:clamp(9px, 0.85vw, 10.5px);
+    color:var(--text-faint);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    margin-bottom:5px;
+  }
+  .kpi-cell .kpi-value{
+    font-size:clamp(11px, 1.35vw, 15px);
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* Table */
+  .table-scroll{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  table.metric-table{
+    width:100%;
+    min-width:460px;
+    table-layout:fixed;
+    border-collapse:collapse;
+    font-size:12px;
+  }
+  table.metric-table col.col-name{ width:76px; }
+  table.metric-table thead th{
+    text-align:right;
+    font-weight:500;
+    color:var(--text-faint);
+    font-size:10px;
+    padding:0 6px 8px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  table.metric-table thead th:first-child{ text-align:left; }
+  table.metric-table tbody td{
+    padding:10px 6px;
+    text-align:right;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    border-top:1px solid var(--panel-border);
+  }
+  table.metric-table tbody td:first-child{ text-align:left; }
+
+  .name-truncate{
+    display:block;
+    width:100%;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  tr.brand-row{
+    cursor:pointer;
+    transition: background .15s var(--ease);
+  }
+  tr.brand-row:hover{ background:rgba(255,255,255,0.035); }
+  tr.brand-row td:first-child{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-weight:600;
+    min-width:0;
+  }
+  tr.brand-row td:first-child .name-truncate{
+    flex:1;
+    min-width:0;
+  }
+  .chevron{
+    display:inline-flex;
+    width:12px; height:12px;
+    align-items:center;
+    justify-content:center;
+    color:var(--text-faint);
+    transition: transform .2s var(--ease);
+    flex-shrink:0;
+  }
+  tr.brand-row.expanded .chevron{ transform:rotate(90deg); }
+
+  tr.campaign-row td{
+    color:var(--text-dim);
+    font-size:12px;
+  }
+  tr.campaign-row td:first-child{
+    padding-left:14px;
+    font-weight:400;
+  }
+
+  tr.campaign-page-row td{
+    padding:10px 4px;
+    border-top:1px solid var(--panel-border);
+  }
+  .pagination{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .pagination-range{
+    font-size:11px;
+    color:var(--text-faint);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .pagination-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .pagination-page{
+    font-size:11px;
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .page-btn{
+    background:rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    color:var(--text-dim);
+    font-size:11px;
+    padding:4px 9px;
+    border-radius:6px;
+    cursor:pointer;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .page-btn:hover:not(:disabled){
+    border-color: rgba(255,255,255,0.32);
+    color:var(--text);
+    background:rgba(255,255,255,0.1);
+  }
+  .page-btn:disabled{
+    opacity:0.35;
+    cursor:default;
+  }
+
+  .table-empty-note{
+    color:var(--text-faint);
+    font-size:13px;
+    padding:20px 4px;
+  }
+
+  /* Analysis section */
+  #analysis-section{
+    margin-top:26px;
+    border-radius:16px;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    padding:24px;
+  }
+  #analysis-section .analysis-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  #analysis-section h2{
+    font-size:17px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  #analysis-section .analysis-sub{
+    color:var(--text-faint);
+    font-size:12.5px;
+  }
+
+  .callout-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:14px;
+  }
+  @media (max-width: 980px){
+    .callout-grid{ grid-template-columns:repeat(2, 1fr); }
+  }
+  @media (max-width: 640px){
+    .callout-grid{ grid-template-columns:1fr; }
+  }
+
+  .callout{
+    border-radius:12px;
+    border:1px solid var(--panel-border);
+    background:rgba(255,255,255,0.03);
+    padding:16px;
+  }
+  .callout .callout-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .callout .metric-name{
+    font-size:13px;
+    font-weight:600;
+  }
+  .callout .winner-badge{
+    font-size:11px;
+    padding:3px 8px;
+    border-radius:20px;
+    font-weight:500;
+    white-space:nowrap;
+  }
+  .callout .winner-badge.a{ color:var(--accent-a); background:var(--accent-a-dim); }
+  .callout .winner-badge.b{ color:var(--accent-b); background:var(--accent-b-dim); }
+  .callout .winner-badge.even{ color:var(--text-faint); background:rgba(255,255,255,0.06); }
+
+  .callout .values-row{
+    display:flex;
+    gap:14px;
+    margin-bottom:10px;
+  }
+  .callout .value-block{ flex:1; min-width:0; }
+  .callout .value-block .vlabel{
+    font-size:10.5px;
+    color:var(--text-faint);
+    margin-bottom:2px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .callout .value-block .vlabel.a{ color:var(--accent-a); }
+  .callout .value-block .vlabel.b{ color:var(--accent-b); }
+  .callout .value-block .vnum{
+    font-size:15px;
+    font-weight:600;
+  }
+  .callout .analyst-note{
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--text-dim);
+  }
+
+  .analysis-placeholder{
+    color:var(--text-faint);
+    font-size:13.5px;
+    text-align:center;
+    padding:30px 10px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ UPLOAD SCREEN ============ -->
+  <div id="upload-screen">
+    <div class="upload-eyebrow-mark">
+      <span class="chip a"></span><span class="chip b"></span>
+      <span class="label">Amazon Ads · Brand Comparator</span>
+    </div>
+    <h1>Compare two brands, side by side</h1>
+    <p class="sub">Drop in a unified Amazon Ads report and see how any two brands in it stack up — spend, sales, efficiency, and the campaigns behind the numbers.</p>
+
+    <div id="dropzone" tabindex="0" role="button" aria-label="Upload CSV report">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="4" width="32" height="32" rx="8" stroke="#F3F2ED" stroke-opacity="0.55" stroke-width="1.4"/>
+        <path d="M20 26V14M20 14L15 19M20 14L25 19" stroke="#F3F2ED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="dz-title">Drag your report here</div>
+      <div class="dz-sub">or click to browse — accepts <b>.csv</b></div>
+      <input type="file" id="file-input" accept=".csv,text/csv">
+    </div>
+    <div id="upload-error"></div>
+  </div>
+
+  <!-- ============ DASHBOARD SCREEN ============ -->
+  <div id="dashboard-screen">
+    <header class="top-bar">
+      <div class="brandmark">
+        <span class="chips"><span class="a"></span><span class="b"></span></span>
+        Brand Comparator
+      </div>
+      <div class="meta" id="report-meta"></div>
+      <button id="reset-btn" type="button">Load a different report</button>
+    </header>
+
+    <main>
+      <div class="split">
+        <div class="side" data-side="a">
+          <div class="side-head">
+            <span class="side-label a-color">Brand A</span>
+            <select class="brand-select" id="select-a"></select>
+          </div>
+          <div class="kpi-strip" id="kpi-a"></div>
+          <div class="table-scroll">
+            <table class="metric-table" id="table-a">
+              <colgroup>
+                <col class="col-name"><col><col><col><col><col><col><col><col><col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Brand</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>CPC</th>
+                  <th>Spend</th><th>Sales</th><th>ROAS</th><th>Orders</th><th>CVR</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="side" data-side="b">
+          <div class="side-head">
+            <span class="side-label b-color">Brand B</span>
+            <select class="brand-select" id="select-b"></select>
+          </div>
+          <div class="kpi-strip" id="kpi-b"></div>
+          <div class="table-scroll">
+            <table class="metric-table" id="table-b">
+              <colgroup>
+                <col class="col-name"><col><col><col><col><col><col><col><col><col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Brand</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>CPC</th>
+                  <th>Spend</th><th>Sales</th><th>ROAS</th><th>Orders</th><th>CVR</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <section id="analysis-section">
+        <div class="analysis-head">
+          <h2>Comparative analysis</h2>
+          <span class="analysis-sub" id="analysis-sub"></span>
+        </div>
+        <div class="callout-grid" id="callout-grid"></div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  var DEFAULT_ROW_LIMIT = 10;
+
+  var state = {
+    brands: null,       // Map<brandName, {name, totals, campaigns: Map}>
+    brandOrder: [],
+    expanded: { a:false, b:false },
+    rowLimit: { a: DEFAULT_ROW_LIMIT, b: DEFAULT_ROW_LIMIT },
+    page: { a:1, b:1 },
+    rowCount: 0
+  };
+
+  // ---------------------------------------------------------------
+  // CSV parsing (RFC4180-ish, handles quoted fields + doubled quotes)
+  // ---------------------------------------------------------------
+  function parseCSV(text){
+    var rows = [];
+    var row = [];
+    var field = '';
+    var inQuotes = false;
+    var len = text.length;
+    for (var i = 0; i < len; i++){
+      var c = text[i];
+      if (inQuotes){
+        if (c === '"'){
+          if (text[i+1] === '"'){ field += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          field += c;
+        }
+      } else {
+        if (c === '"'){ inQuotes = true; }
+        else if (c === ','){ row.push(field); field = ''; }
+        else if (c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+        else if (c === '\r'){ /* skip */ }
+        else { field += c; }
+      }
+    }
+    if (field.length || row.length){ row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function cleanCell(v){
+    if (v == null) return '';
+    v = String(v).trim();
+    // Excel-style ="123" wrapper
+    if (v.indexOf('=') === 0) v = v.slice(1);
+    if (v.charAt(0) === '"' && v.charAt(v.length-1) === '"') v = v.slice(1, -1);
+    return v.trim();
+  }
+
+  function toNum(v){
+    var n = parseFloat(cleanCell(v).replace(/,/g,''));
+    return isFinite(n) ? n : 0;
+  }
+
+  // ---------------------------------------------------------------
+  // Aggregation
+  // ---------------------------------------------------------------
+  function aggregate(rawRows){
+    if (!rawRows.length) throw new Error('empty');
+    var header = rawRows[0].map(function(h){ return cleanCell(h); });
+    function col(name){ return header.indexOf(name); }
+
+    var iBrand   = col('Advertiser account name');
+    var iCampId  = col('Campaign ID');
+    var iCampNm  = col('Campaign name');
+    var iImpr    = col('Impressions');
+    var iClicks  = col('Clicks');
+    var iCost    = col('Total cost');
+    var iSales   = col('Sales');
+    var iPurch   = col('Purchases');
+
+    if (iBrand === -1 || iImpr === -1 || iCost === -1) {
+      throw new Error('columns');
+    }
+
+    var brands = new Map();
+    var rowCount = 0;
+
+    for (var r = 1; r < rawRows.length; r++){
+      var row = rawRows[r];
+      if (!row || row.length < 2) continue;
+      var brandName = cleanCell(row[iBrand]);
+      if (!brandName) continue;
+
+      var campId = iCampId > -1 ? cleanCell(row[iCampId]) : '';
+      var campName = iCampNm > -1 ? cleanCell(row[iCampNm]) : 'Unnamed campaign';
+      var campKey = campId || campName;
+
+      var impressions = toNum(row[iImpr]);
+      var clicks = iClicks > -1 ? toNum(row[iClicks]) : 0;
+      var cost = toNum(row[iCost]);
+      var sales = iSales > -1 ? toNum(row[iSales]) : 0;
+      var purchases = iPurch > -1 ? toNum(row[iPurch]) : 0;
+
+      if (!brands.has(brandName)){
+        brands.set(brandName, {
+          name: brandName,
+          totals: { impressions:0, clicks:0, cost:0, sales:0, purchases:0 },
+          campaigns: new Map()
+        });
+      }
+      var b = brands.get(brandName);
+      b.totals.impressions += impressions;
+      b.totals.clicks += clicks;
+      b.totals.cost += cost;
+      b.totals.sales += sales;
+      b.totals.purchases += purchases;
+
+      if (!b.campaigns.has(campKey)){
+        b.campaigns.set(campKey, {
+          name: campName,
+          totals: { impressions:0, clicks:0, cost:0, sales:0, purchases:0 }
+        });
+      }
+      var cRec = b.campaigns.get(campKey);
+      cRec.totals.impressions += impressions;
+      cRec.totals.clicks += clicks;
+      cRec.totals.cost += cost;
+      cRec.totals.sales += sales;
+      cRec.totals.purchases += purchases;
+
+      rowCount++;
+    }
+
+    if (!brands.size) throw new Error('no-brands');
+
+    return { brands: brands, rowCount: rowCount };
+  }
+
+  function deriveMetrics(t){
+    var ctr = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
+    var cpc = t.clicks > 0 ? t.cost / t.clicks : 0;
+    var roas = t.cost > 0 ? t.sales / t.cost : 0;
+    var cvr = t.clicks > 0 ? (t.purchases / t.clicks) * 100 : 0;
+    return {
+      impressions: t.impressions,
+      clicks: t.clicks,
+      ctr: ctr,
+      cpc: cpc,
+      spend: t.cost,
+      sales: t.sales,
+      roas: roas,
+      orders: t.purchases,
+      cvr: cvr
+    };
+  }
+
+  // ---------------------------------------------------------------
+  // Formatting
+  // ---------------------------------------------------------------
+  function fmtInt(n){
+    return Math.round(n).toLocaleString('en-US');
+  }
+  function fmtCompact(n){
+    var abs = Math.abs(n);
+    if (abs >= 1000000) return (n/1000000).toFixed(abs >= 10000000 ? 1 : 2).replace(/\.0+$/,'') + 'M';
+    if (abs >= 1000) return (n/1000).toFixed(abs >= 10000 ? 0 : 1).replace(/\.0$/,'') + 'K';
+    return fmtInt(n);
+  }
+  function fmtCurrency(n){
+    return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function fmtCurrencyCompact(n){
+    var abs = Math.abs(n);
+    if (abs >= 1000) return '$' + fmtCompact(n);
+    return fmtCurrency(n);
+  }
+  function fmtPercent(n){
+    return n.toFixed(2) + '%';
+  }
+  function fmtRoas(n){
+    return n.toFixed(2) + 'x';
+  }
+
+  var METRICS = [
+    { key:'impressions', label:'Impressions', fmt:fmtCompact, fmtFull:fmtInt, direction:'higher' },
+    { key:'clicks',      label:'Clicks',      fmt:fmtCompact, fmtFull:fmtInt, direction:'higher' },
+    { key:'ctr',         label:'CTR',         fmt:fmtPercent, fmtFull:fmtPercent, direction:'higher' },
+    { key:'cpc',         label:'CPC',         fmt:fmtCurrency, fmtFull:fmtCurrency, direction:'lower' },
+    { key:'spend',       label:'Spend',       fmt:fmtCurrencyCompact, fmtFull:fmtCurrency, direction:'neutral' },
+    { key:'sales',       label:'Sales',       fmt:fmtCurrencyCompact, fmtFull:fmtCurrency, direction:'higher' },
+    { key:'roas',        label:'ROAS',        fmt:fmtRoas, fmtFull:fmtRoas, direction:'higher' },
+    { key:'orders',      label:'Orders',      fmt:fmtCompact, fmtFull:fmtInt, direction:'higher' },
+    { key:'cvr',         label:'CVR',         fmt:fmtPercent, fmtFull:fmtPercent, direction:'higher' }
+  ];
+
+  // ---------------------------------------------------------------
+  // Rendering: KPI strip + table for one side
+  // ---------------------------------------------------------------
+  function renderSide(side){
+    var selectEl = document.getElementById('select-' + side);
+    var brandName = selectEl.value;
+    var brand = brandName ? state.brands.get(brandName) : null;
+    var kpiEl = document.getElementById('kpi-' + side);
+    var tableBody = document.querySelector('#table-' + side + ' tbody');
+
+    kpiEl.innerHTML = '';
+    tableBody.innerHTML = '';
+
+    if (!brand){
+      kpiEl.innerHTML = '<div class="table-empty-note">No brand selected</div>';
+      return;
+    }
+
+    var m = deriveMetrics(brand.totals);
+
+    METRICS.forEach(function(spec){
+      var cell = document.createElement('div');
+      cell.className = 'kpi-cell';
+      var label = document.createElement('div');
+      label.className = 'kpi-label';
+      label.textContent = spec.label;
+      var value = document.createElement('div');
+      value.className = 'kpi-value';
+      value.textContent = spec.fmt(m[spec.key]);
+      cell.appendChild(label);
+      cell.appendChild(value);
+      kpiEl.appendChild(cell);
+    });
+
+    // brand summary row
+    var brandRow = document.createElement('tr');
+    brandRow.className = 'brand-row';
+    if (state.expanded[side]) brandRow.classList.add('expanded');
+    brandRow.innerHTML = rowCellsHTML(brand.name, m, true);
+    tableBody.appendChild(brandRow);
+
+    // campaign rows (sorted by spend desc), only built when expanded,
+    // paginated at the per-side page size
+    if (state.expanded[side]){
+      var campaigns = Array.from(brand.campaigns.values()).sort(function(a,b){
+        return b.totals.cost - a.totals.cost;
+      });
+
+      var pageSize = Math.max(1, state.rowLimit[side] || DEFAULT_ROW_LIMIT);
+      var totalPages = Math.max(1, Math.ceil(campaigns.length / pageSize));
+      var page = state.page[side] || 1;
+      if (page > totalPages) page = totalPages;
+      if (page < 1) page = 1;
+      state.page[side] = page;
+
+      var start = (page - 1) * pageSize;
+      var visible = campaigns.slice(start, start + pageSize);
+
+      visible.forEach(function(camp){
+        var cm = deriveMetrics(camp.totals);
+        var cRow = document.createElement('tr');
+        cRow.className = 'campaign-row';
+        cRow.innerHTML = rowCellsHTML(camp.name, cm, false);
+        tableBody.appendChild(cRow);
+      });
+
+      if (campaigns.length > 0){
+        var pageRow = document.createElement('tr');
+        pageRow.className = 'campaign-page-row';
+        var rangeStart = campaigns.length ? start + 1 : 0;
+        var rangeEnd = Math.min(start + pageSize, campaigns.length);
+        var cell = document.createElement('td');
+        cell.colSpan = 10;
+        cell.innerHTML =
+          '<div class="pagination">' +
+            '<span class="pagination-range">' + rangeStart + '\u2013' + rangeEnd + ' of ' + campaigns.length + ' campaigns</span>' +
+            '<span class="pagination-controls">' +
+              '<label class="row-limit-label">Rows per page' +
+                '<input type="number" class="row-limit-input" id="rowlimit-' + side + '" min="1" max="500" value="' + pageSize + '">' +
+              '</label>' +
+              '<button type="button" class="page-btn" data-dir="-1"' + (page <= 1 ? ' disabled' : '') + '>Prev</button>' +
+              '<span class="pagination-page">Page ' + page + ' of ' + totalPages + '</span>' +
+              '<button type="button" class="page-btn" data-dir="1"' + (page >= totalPages ? ' disabled' : '') + '>Next</button>' +
+            '</span>' +
+          '</div>';
+        pageRow.appendChild(cell);
+        tableBody.appendChild(pageRow);
+
+        cell.querySelectorAll('.page-btn').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var dir = parseInt(btn.getAttribute('data-dir'), 10);
+            state.page[side] = (state.page[side] || 1) + dir;
+            renderSide(side);
+          });
+        });
+
+        var rowLimitInput = cell.querySelector('.row-limit-input');
+        rowLimitInput.addEventListener('change', function(){
+          var n = parseInt(rowLimitInput.value, 10);
+          if (!isFinite(n) || n < 1) n = 1;
+          n = Math.min(n, 500);
+          rowLimitInput.value = n;
+          state.rowLimit[side] = n;
+          state.page[side] = 1;
+          renderSide(side);
+        });
+      }
+    }
+
+    brandRow.addEventListener('click', function(){
+      state.expanded[side] = !state.expanded[side];
+      state.page[side] = 1;
+      renderSide(side);
+    });
+  }
+
+  function rowCellsHTML(name, m, isBrandRow){
+    var nameCell;
+    var safeName = escapeHTML(name);
+    if (isBrandRow){
+      nameCell = '<td title="' + safeName + '"><span class="chevron">&#9656;</span><span class="name-truncate">' + safeName + '</span></td>';
+    } else {
+      nameCell = '<td title="' + safeName + '"><span class="name-truncate">' + safeName + '</span></td>';
+    }
+    return nameCell +
+      '<td>' + fmtCompact(m.impressions) + '</td>' +
+      '<td>' + fmtCompact(m.clicks) + '</td>' +
+      '<td>' + fmtPercent(m.ctr) + '</td>' +
+      '<td>' + fmtCurrency(m.cpc) + '</td>' +
+      '<td>' + fmtCurrencyCompact(m.spend) + '</td>' +
+      '<td>' + fmtCurrencyCompact(m.sales) + '</td>' +
+      '<td>' + fmtRoas(m.roas) + '</td>' +
+      '<td>' + fmtCompact(m.orders) + '</td>' +
+      '<td>' + fmtPercent(m.cvr) + '</td>';
+  }
+
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Analyst-voice comparative callouts
+  // ---------------------------------------------------------------
+  function magnitudeWord(diffPct){
+    var a = Math.abs(diffPct);
+    if (a < 5) return 'essentially even';
+    if (a < 15) return 'a modest edge';
+    if (a < 40) return 'a clear advantage';
+    return 'a commanding lead';
+  }
+
+  function pctDiff(a, b){
+    if (a === 0 && b === 0) return 0;
+    var base = Math.max(Math.abs(a), Math.abs(b), 0.0001);
+    return ((a - b) / base) * 100;
+  }
+
+  function analystNote(spec, mA, mB, nameA, nameB){
+    var vA = mA[spec.key], vB = mB[spec.key];
+    var diff = pctDiff(vA, vB); // positive => A higher
+    var absDiffPct = Math.abs(diff);
+    var higherName = diff >= 0 ? nameA : nameB;
+    var lowerName = diff >= 0 ? nameB : nameA;
+    var mag = magnitudeWord(absDiffPct);
+
+    switch(spec.key){
+      case 'impressions':
+        if (absDiffPct < 5) return nameA + ' and ' + nameB + ' are pulling near-identical impression volume, suggesting comparable auction presence and budget-driven reach.';
+        return higherName + ' is capturing ' + mag + ' in impression volume over ' + lowerName + ' (' + absDiffPct.toFixed(0) + '% wider reach), pointing to broader keyword coverage, higher bids, or larger budget allocation in the auction.';
+      case 'clicks':
+        if (absDiffPct < 5) return 'Click volume is tracking closely between the two brands, so any gap in downstream performance is coming from relevance or funnel efficiency rather than raw traffic.';
+        return higherName + ' is generating ' + mag + ' in clicks (' + absDiffPct.toFixed(0) + '% ahead of ' + lowerName + '), which combined with the CTR gap below should be read as a volume story, not necessarily a relevance one.';
+      case 'ctr':
+        if (absDiffPct < 5) return 'CTR is essentially level, indicating similar ad relevance and placement quality across both accounts\' search terms and creative.';
+        return higherName + '\'s CTR of ' + spec.fmtFull(vA >= vB ? vA : vB) + ' gives it ' + mag + ' over ' + lowerName + ' at ' + spec.fmtFull(vA >= vB ? vB : vA) + ' — a sign of stronger keyword-to-query match and more compelling ad copy or main image at the point of impression.';
+      case 'cpc':
+        if (absDiffPct < 5) return 'CPCs are tightly matched, meaning neither account is paying a meaningful premium for clicks in this period.';
+        return lowerName + ' is buying clicks more efficiently, holding CPC ' + mag.replace('a ', '') + ' below ' + higherName + '\'s — likely a mix of lower competitive pressure on its terms and tighter bid management.';
+      case 'spend':
+        if (absDiffPct < 5) return nameA + ' and ' + nameB + ' are investing at a similar level this period, so the sales and ROAS gaps below reflect efficiency, not budget size.';
+        return higherName + ' is deploying ' + mag + ' in budget (' + absDiffPct.toFixed(0) + '% more spend than ' + lowerName + '), which should be weighed against its ROAS and CPC to judge whether that extra investment is earning its keep.';
+      case 'sales':
+        if (absDiffPct < 5) return 'Attributed sales are running neck and neck, so on raw revenue contribution the two accounts are performing comparably.';
+        return higherName + ' is driving ' + mag + ' in attributed sales (' + absDiffPct.toFixed(0) + '% ahead of ' + lowerName + '), the clearest top-line signal in this comparison.';
+      case 'roas':
+        if (absDiffPct < 5) return 'Return on ad spend is nearly identical, meaning both accounts are converting media investment into revenue at the same rate.';
+        return higherName + ' is returning ' + spec.fmtFull(vA >= vB ? vA : vB) + ' per dollar spent versus ' + lowerName + '\'s ' + spec.fmtFull(vA >= vB ? vB : vA) + ' — ' + mag + ' in overall media efficiency and the metric worth prioritizing when reallocating budget.';
+      case 'orders':
+        if (absDiffPct < 5) return 'Order volume is closely matched between the two brands this period.';
+        return higherName + ' is converting ' + mag + ' in order volume (' + absDiffPct.toFixed(0) + '% more than ' + lowerName + '), consistent with its position on sales and clicks above.';
+      case 'cvr':
+        if (absDiffPct < 5) return 'Conversion rate is essentially the same, so neither brand\'s listing or offer is meaningfully outperforming the other once a shopper clicks through.';
+        return higherName + ' converts clicks to orders at ' + spec.fmtFull(vA >= vB ? vA : vB) + ' versus ' + lowerName + '\'s ' + spec.fmtFull(vA >= vB ? vB : vA) + ', ' + mag + ' that points to a stronger listing, price position, or review profile on the product detail page.';
+      default:
+        return '';
+    }
+  }
+
+  function winnerBadge(spec, vA, vB){
+    if (spec.direction === 'neutral'){
+      return { cls:'even', text:'informational' };
+    }
+    var diff = pctDiff(vA, vB);
+    if (Math.abs(diff) < 5) return { cls:'even', text:'even' };
+    var aWins = spec.direction === 'higher' ? diff > 0 : diff < 0;
+    return aWins ? { cls:'a', text:'A leads' } : { cls:'b', text:'B leads' };
+  }
+
+  function renderAnalysis(){
+    var nameA = document.getElementById('select-a').value;
+    var nameB = document.getElementById('select-b').value;
+    var grid = document.getElementById('callout-grid');
+    var sub = document.getElementById('analysis-sub');
+    grid.innerHTML = '';
+
+    if (!nameA || !nameB){
+      grid.innerHTML = '<div class="analysis-placeholder">Select a brand on each side to generate the comparison.</div>';
+      sub.textContent = '';
+      return;
+    }
+    if (nameA === nameB){
+      grid.innerHTML = '<div class="analysis-placeholder">Choose two different brands to compare performance.</div>';
+      sub.textContent = '';
+      return;
+    }
+
+    var brandA = state.brands.get(nameA);
+    var brandB = state.brands.get(nameB);
+    var mA = deriveMetrics(brandA.totals);
+    var mB = deriveMetrics(brandB.totals);
+
+    sub.textContent = nameA + ' vs. ' + nameB;
+
+    METRICS.forEach(function(spec){
+      var vA = mA[spec.key], vB = mB[spec.key];
+      var badge = winnerBadge(spec, vA, vB);
+      var note = analystNote(spec, mA, mB, nameA, nameB);
+
+      var card = document.createElement('div');
+      card.className = 'callout';
+      card.innerHTML =
+        '<div class="callout-top">' +
+          '<span class="metric-name">' + spec.label + '</span>' +
+          '<span class="winner-badge ' + badge.cls + '">' + badge.text + '</span>' +
+        '</div>' +
+        '<div class="values-row">' +
+          '<div class="value-block">' +
+            '<div class="vlabel a">' + escapeHTML(nameA) + '</div>' +
+            '<div class="vnum">' + spec.fmtFull(vA) + '</div>' +
+          '</div>' +
+          '<div class="value-block">' +
+            '<div class="vlabel b">' + escapeHTML(nameB) + '</div>' +
+            '<div class="vnum">' + spec.fmtFull(vB) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="analyst-note">' + escapeHTML(note) + '</div>';
+      grid.appendChild(card);
+    });
+  }
+
+  function renderAll(){
+    renderSide('a');
+    renderSide('b');
+    renderAnalysis();
+  }
+
+  // ---------------------------------------------------------------
+  // Populate brand dropdowns
+  // ---------------------------------------------------------------
+  function populateSelects(){
+    var selA = document.getElementById('select-a');
+    var selB = document.getElementById('select-b');
+    selA.innerHTML = '';
+    selB.innerHTML = '';
+    state.brandOrder.forEach(function(name){
+      var optA = document.createElement('option');
+      optA.value = name; optA.textContent = name;
+      selA.appendChild(optA);
+      var optB = document.createElement('option');
+      optB.value = name; optB.textContent = name;
+      selB.appendChild(optB);
+    });
+    if (state.brandOrder.length > 0) selA.value = state.brandOrder[0];
+    if (state.brandOrder.length > 1) selB.value = state.brandOrder[1];
+    else if (state.brandOrder.length > 0) selB.value = state.brandOrder[0];
+  }
+
+  // ---------------------------------------------------------------
+  // Ingest a parsed CSV text string
+  // ---------------------------------------------------------------
+  function handleCSVText(text, filename){
+    try {
+      var rawRows = parseCSV(text);
+      var result = aggregate(rawRows);
+      state.brands = result.brands;
+      state.rowCount = result.rowCount;
+      state.brandOrder = Array.from(result.brands.keys()).sort(function(a,b){ return a.localeCompare(b); });
+      state.expanded = { a:false, b:false };
+      state.page = { a:1, b:1 };
+
+      populateSelects();
+      renderAll();
+
+      document.getElementById('report-meta').textContent =
+        state.brandOrder.length + ' brand' + (state.brandOrder.length === 1 ? '' : 's') +
+        ' · ' + state.rowCount.toLocaleString('en-US') + ' rows' +
+        (filename ? ' · ' + filename : '');
+
+      document.getElementById('upload-screen').style.display = 'none';
+      document.getElementById('dashboard-screen').style.display = 'block';
+      document.getElementById('upload-error').textContent = '';
+    } catch (err){
+      showUploadError(err);
+    }
+  }
+
+  function showUploadError(err){
+    var msg = 'Could not read that file. Make sure it\'s the unified Amazon Ads CSV export.';
+    if (err && err.message === 'columns') msg = 'This CSV is missing expected columns (brand, impressions, cost). Check the export and try again.';
+    if (err && err.message === 'no-brands') msg = 'No brand rows were found in this file.';
+    document.getElementById('upload-error').textContent = msg;
+  }
+
+  // ---------------------------------------------------------------
+  // Manual upload: drag & drop / click-to-browse
+  // ---------------------------------------------------------------
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('file-input');
+
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  dropzone.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); }
+  });
+
+  ['dragenter','dragover'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.remove('dragover');
+    });
+  });
+  dropzone.addEventListener('drop', function(e){
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) readLocalFile(files[0]);
+  });
+  fileInput.addEventListener('change', function(e){
+    if (e.target.files && e.target.files.length) readLocalFile(e.target.files[0]);
+  });
+
+  function readLocalFile(file){
+    var reader = new FileReader();
+    reader.onload = function(e){ handleCSVText(e.target.result, file.name); };
+    reader.onerror = function(){ showUploadError(new Error('read')); };
+    reader.readAsText(file);
+  }
+
+  // ---------------------------------------------------------------
+  // Dashboard controls
+  // ---------------------------------------------------------------
+  document.getElementById('select-a').addEventListener('change', function(){
+    state.expanded.a = false;
+    state.page.a = 1;
+    renderSide('a'); renderAnalysis();
+  });
+  document.getElementById('select-b').addEventListener('change', function(){
+    state.expanded.b = false;
+    state.page.b = 1;
+    renderSide('b'); renderAnalysis();
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', function(){
+    document.getElementById('dashboard-screen').style.display = 'none';
+    document.getElementById('upload-screen').style.display = 'flex';
+    document.getElementById('upload-error').textContent = '';
+    fileInput.value = '';
+  });
+
+  // ---------------------------------------------------------------
+  // Required: file-receiving contract (postMessage from parent iframe)
+  // ---------------------------------------------------------------
+  function decodeBase64Text(dataUrl){
+    var base64 = dataUrl.split(',')[1] || '';
+    return decodeURIComponent(escape(atob(base64)));
+  }
+
+  function isCsvFile(file){
+    var type = (file.type || '').toLowerCase();
+    var name = (file.name || '').toLowerCase();
+    return type.indexOf('csv') > -1 || type.indexOf('text') > -1 || name.endsWith('.csv') || name.endsWith('.txt');
+  }
+
+  var handledIncoming = false;
+
+  function handleIncomingFile(file){
+    if (!file || !file.content) return;
+    if (handledIncoming) return; // this tool consumes a single report
+    if (!isCsvFile(file)) return;
+    try {
+      var text = decodeBase64Text(file.content);
+      handledIncoming = true;
+      handleCSVText(text, file.name);
+    } catch (err){
+      showUploadError(err);
+    }
+  }
+
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (!data) return;
+    if (data.type === 'universal-file') {
+      handleIncomingFile(data.file);
+      event.source.postMessage(
+        { type: 'universal-file-ack', name: data.file.name },
+        event.origin === 'null' ? '*' : event.origin
+      );
+    } else if (data.type === 'universal-files') {
+      data.files.forEach(handleIncomingFile);
+      event.source.postMessage(
+        { type: 'universal-files-ack', names: data.files.map(function(f){ return f.name; }) },
+        event.origin === 'null' ? '*' : event.origin
+      );
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
